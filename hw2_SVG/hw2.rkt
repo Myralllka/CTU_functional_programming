@@ -15,7 +15,7 @@
 ))
 
 (define (svg_circle pars input_env) (match-define (list x y r style) pars) (
-    set! result (string-append result (format "<circle cx=\"~a\" cy=\"~a\" r=\"~a\" style=\"~a\">" 
+    set! result (string-append result (format "<circle cx=\"~a\" cy=\"~a\" r=\"~a\" style=\"~a\"/>" 
         ((evaluate_num_expression input_env ) (get_el_from_env x input_env))
         ((evaluate_num_expression input_env ) (get_el_from_env y input_env))
         ((evaluate_num_expression input_env ) (get_el_from_env r input_env)) style))
@@ -68,12 +68,40 @@
     )
 ))
 
+(define (map_num_of_values mp key [res 0])
+(
+    cond
+        ([empty? mp] res)
+        ([equal? key (caar mp)] (map_num_of_values (cdr mp) key (+ res 1)))
+        (else (map_num_of_values (cdr mp) key res))
+))
+
+; (define (find_last val env) (
+;     cond
+;         ([empty? env] '())
+;         ([equal? (car (last env)) val] (car (last env)))
+;         (else (find_last val (drop-right env 1)))
+; ))
+
 ; return new updated envieronment
-(define (update_env key value env) (
+(define (update_env_value key val env) 
+; (print " key: ")
+; (print key)
+; (print " val: ")
+; (print val)
+; (print " env: ")
+; (print env)
+; (display "\n")
+    (
     cond 
-        ([empty? env] '(()))
-        ([equal? (caar in_env) el] (cdar in_env))
-        (else (get_el_from_env el (cdr in_env)))
+        ([empty? env] env)
+        ([= (map_num_of_values env key) 0] (
+            append env (list(list key val))
+        ))
+        ([= (map_num_of_values env key) 1] (
+            map (lambda (x) (cond ([equal? (first x) key] (list key val))(else x))) env
+        ))
+        (else env)
 ))
 
 (define (get_el_from_env el in_env) (
@@ -84,40 +112,28 @@
         (else (get_el_from_env el (cdr in_env)))
 ))
 
-(define (expand_env lst env) (print lst) (print " env: ") (print env) (display "\n") (
+(define (expand_env lst env)(
     map (lambda (x) (cond ([symbol? x] (car (get_el_from_env x env))) (else x))) lst
 ))
 
-(define counter 6)
 (define (evaluate_function lst environment)
     (define proc (cond ([empty? lst] '()) (else (get_el_from_env (caar lst) environment))))
-    ; (print environment)
-    ; (display "\n")
     (cond
         ([empty? lst] '())
         (else (
             cond
                 ([equal? (caar lst) 'if] (123))
                 ([equal? (caar lst) 'when] (
-                    ; (print (cdr (second (car lst))))
                     cond 
                         ([(evaluate_bool_expression environment) (map (evaluate_num_expression environment)  (second (car lst)))] 
                             (evaluate_function (cddar lst) environment))
-                    
-                    ; (evaluate_function (cdar lst) environment)
                 ))
-                ([empty? proc] (345))
-                (else (cond
-                    ([= counter 0] lst)
-                    (else (begin0 
-                            ; (print (cdar lst))
-                            ; (display "\n")
-                            (set! counter (- counter 1))
-                            ; (print proc)
+                ([empty? proc] (error ("evaluate_function: empty expr")))    
+                (else (begin0
                             ((car proc) (expand_env (cdar lst) environment) environment)
                             (evaluate_function (cdr lst) environment)
-                        )))
-                )
+                        ))
+                
         ))
     )
 )
@@ -126,12 +142,12 @@
     (define (expand_env lst pars env) (
         cond
             ([or (empty? lst) (not (list? lst))] (append env '()))
-            (else (expand_env (cdr lst) (cdr pars) (append env (list(list (car lst) (car pars))))))
+            (else (expand_env (cdr lst) (cdr pars) (update_env_value (car lst) ((evaluate_num_expression env) (car pars)) env)))
     ))
     (lambda (args env) (evaluate_function (cdr input_lst) (expand_env (cdar input_lst) args env))
 ))
 
-(define (run_prg lst [env '()])  (
+(define (run_prg lst [env '()]) (
     cond
         ; if there are few functions to define
         ([empty? lst] env)
@@ -162,6 +178,19 @@
         ; )
     )   
 )
+
+(define test3 
+    '(
+        (define (recur-circ x y r)
+(circle x y r "fill:lightgreen;opacity:0.5;stroke:black;stroke-width:2")
+(when (> r 15)
+(recur-circ (+ x r) y (floor (/ r 2)))
+(recur-circ (- x r) y (floor (/ r 2)))
+(recur-circ x (+ y r) (floor (/ r 2)))
+(recur-circ x (- y r) (floor (/ r 2)))
+)
+)
+))
 
 (define test2
 '(
@@ -214,7 +243,8 @@
 
 
 ; (display (execute 400 400 test1 '(start 121 213)))
-(display (execute 400 400 test2 '(circles 200 200)))
+; (display (execute 400 400 test2 '(circles 200 200)))
+(display(execute 400 400 test3 '(recur-circ 200 200 100)))
 
 (define tree-prg
     '(
