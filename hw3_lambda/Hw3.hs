@@ -20,25 +20,29 @@ checkVarFree (Lambda var1 e) (Var var_conv) | var1 == var_conv = False
                                             | otherwise = checkVarFree e (Var var_conv)
 
 
-replaceAllFree :: Expr -> Expr -> Bool
-replaceAllFree (Var a) (Var var_conv) | a == var_conv = (Var var_conv)
-                                      | otherwise = (Var a)
-replaceAllFree (App e1 e2) (Var var_conv) = replaceAllFree e1 (Var var_conv) || replaceAllFree e2 (Var var_conv)
-replaceAllFree (Lambda var1 e) (Var var_conv) | var1 == var_conv = False
-                                              | otherwise = replaceAllFree e (Var var_conv)
+replaceAllFree :: Expr -> Expr -> Int -> Expr
+replaceAllFree (Var a) (Var var_conv) n | a == var_conv = Var (symbols !! n)
+                                        | otherwise = Var a
+replaceAllFree (App e1 e2) (Var var_conv)n  = App (replaceAllFree e1 (Var var_conv) n) (replaceAllFree e2 (Var var_conv) n )
+replaceAllFree (Lambda var1 e) (Var var_conv) n | var1 == var_conv = Lambda var1 e
+                                                | otherwise = Lambda var1 (replaceAllFree e (Var var_conv) n)
 
---
-
-alphaConversionNth :: Expr -> Expr -> Int -> (Expr, Int)
-alphaConversionNth (Var a) (Var var_conv) n | a == var_conv = (Var (symbols !! n), n)
-                                            | otherwise = (Var a, n)
-alphaConversionNth (App e1 e2) var_conv n = let (expr', n') = alphaConversionNth e1 var_conv n
-                                                (expr'', n'') = alphaConversionNth e2 var_conv n'
+alphaConversionNth :: Expr -> Int -> (Expr, Int)
+alphaConversionNth (Var a) n = (Var a, n)
+alphaConversionNth (App e1 e2) n = let (expr', n') = alphaConversionNth e1 n
+                                       (expr'', n'') = alphaConversionNth e2 n'
                                             in (App expr' expr'', n'')
-alphaConversionNth (Lambda var expr) var_conv n | 
+
+alphaConversionNth (Lambda var expr) n = let (Lambda v root, n') | checkVarFree expr (Var var) = (Lambda (symbols !! n) (replaceAllFree expr (Var var) n ), n + 1 )
+                                                                 | otherwise = (Lambda var expr, n)
+                                             (newExpr, n'') = alphaConversionNth root n'
+                                            in (Lambda v newExpr, n'')
 
 alphaConversion :: Expr -> Expr
-alphaConversion a = fst (alphaConversionNth a (Var "") 0)
+alphaConversion a = fst (alphaConversionNth a 0)
 
-main = print( alphaConversion (App (Lambda "x" (Lambda "y" (Var "y"))) (Var "y")))
+
+
+main = print( alphaConversion  (App (Lambda "x" (Lambda "y" (App (Var "x") (Var "y")))) (Lambda "y" (App (Var "x") (Lambda "x" (App (Var "z")( Var "y")))))))
+-- main = print  (App (Lambda "x" (Lambda "y" (App (Var "x") (Var "y")))) (Var "y"))
 
