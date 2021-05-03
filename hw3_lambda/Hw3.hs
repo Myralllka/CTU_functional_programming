@@ -19,30 +19,54 @@ checkVarFree (App e1 e2) (Var var_conv) = checkVarFree e1 (Var var_conv) || chec
 checkVarFree (Lambda var1 e) (Var var_conv) | var1 == var_conv = False
                                             | otherwise = checkVarFree e (Var var_conv)
 
+renameAllFree :: Expr -> Expr -> Int -> Expr
+renameAllFree (Var a) (Var var_conv) n | a == var_conv = Var (symbols !! n)
+                                       | otherwise = Var a
+renameAllFree (App e1 e2) (Var var_conv) n  = App (renameAllFree e1 (Var var_conv) n) (renameAllFree e2 (Var var_conv) n )
+renameAllFree (Lambda var1 e) (Var var_conv) n | var1 == var_conv = Lambda var1 e 
+                                               | otherwise = Lambda var1 (renameAllFree e (Var var_conv) n)
 
-replaceAllFree :: Expr -> Expr -> Int -> Expr
-replaceAllFree (Var a) (Var var_conv) n | a == var_conv = Var (symbols !! n)
-                                        | otherwise = Var a
-replaceAllFree (App e1 e2) (Var var_conv)n  = App (replaceAllFree e1 (Var var_conv) n) (replaceAllFree e2 (Var var_conv) n )
-replaceAllFree (Lambda var1 e) (Var var_conv) n | var1 == var_conv = Lambda var1 e
-                                                | otherwise = Lambda var1 (replaceAllFree e (Var var_conv) n)
+renameAllBounded :: Expr -> Expr -> Int -> Expr
+renameAllBounded (Var a) b n = Var a
+-- renameAllBounded (Var a) (Var var_conv) n | a == var_conv = Var (symbols !! n)
+                                        --   | otherwise = Var a
+renameAllBounded (App e1 e2) (Var var_conv) n  = App (renameAllBounded e1 (Var var_conv) n) (renameAllBounded e2 (Var var_conv) n )
+renameAllBounded (Lambda var1 e) (Var var_conv) n | var1 == var_conv = Lambda (symbols !! n) (renameAllFree e (Var var_conv) n)
+                                                  | otherwise = Lambda var1 (renameAllBounded e (Var var_conv) n)
 
-alphaConversionNth :: Expr -> Int -> (Expr, Int)
-alphaConversionNth (Var a) n = (Var a, n)
-alphaConversionNth (App e1 e2) n = let (expr', n') = alphaConversionNth e1 n
-                                       (expr'', n'') = alphaConversionNth e2 n'
-                                            in (App expr' expr'', n'')
-
-alphaConversionNth (Lambda var expr) n = let (Lambda v root, n') | checkVarFree expr (Var var) = (Lambda (symbols !! n) (replaceAllFree expr (Var var) n ), n + 1 )
-                                                                 | otherwise = (Lambda var expr, n)
-                                             (newExpr, n'') = alphaConversionNth root n'
-                                            in (Lambda v newExpr, n'')
+alphaConversionNth :: Expr -> Expr -> Int ->(Expr, Expr, Int)
+alphaConversionNth (Var a) root n | checkVarFree root (Var a) = (Var (symbols !! n), renameAllBounded root (Var a) n, n+1 )
+                                  | otherwise = (Var a, root,  n)
+alphaConversionNth (Lambda var expr) root n = alphaConversionNth expr root n
+alphaConversionNth (App e1 e2) root n = let (expr', root', n') = alphaConversionNth e1 root n
+                                            (expr'', root'',  n'') = alphaConversionNth e2 root n'
+                                        in (App expr' expr'', root'', n'')
 
 alphaConversion :: Expr -> Expr
-alphaConversion a = fst (alphaConversionNth a 0)
+alphaConversion a = second (alphaConversionNth a a 0)
+
+second :: (Expr, Expr, Int) -> Expr
+second (a, b, c) = b
+
+-- replaceAllFree :: Expr -> Expr -> Expr -> Expr
+-- replaceAllFree (Var replaceWhat) (Var replaceThis) replaceOn | replaceWhat == replaceThis = replaceOn
+--                                                              | otherwise = (Var replaceWhat)
+
+-- replaceAllFree (Lambda x (Var y)) (Var replaceThis) replaceOn | x == replaceThis = replaceOn
 
 
+-- betaReductionNth  expr 
+-- betaReductionNth :: Expr -> 
 
-main = print( alphaConversion  (App (Lambda "x" (Lambda "y" (App (Var "x") (Var "y")))) (Lambda "y" (App (Var "x") (Lambda "x" (App (Var "z")( Var "y")))))))
--- main = print  (App (Lambda "x" (Lambda "y" (App (Var "x") (Var "y")))) (Var "y"))
+-- betaReduction :: Expr -> Expr
+-- betaReduction ()
+-- betaReduction (App (Lambda lvar lexpr) (Var vvar)) 
+
+-- eval :: Expr -> Expr
+-- eval a = betaReduction(alphaConversion a)
+
+-- main = print( alphaConversion  (App (Lambda "x" (Lambda "y" (App (Var "z") (Var "y")))) (Lambda "y" (App (Var "x") (Lambda "x" (App (Var "z")( Var "y")))))))
+-- main = print (App (Lambda "x" (Lambda "y" (App (Var "x") (Var "y")))) (Var "y"))
+-- main = print (alphaConversion (App (Lambda "x" (Lambda "y" (App (Var "x") (Var "y")))) (Var "y")))
+main = print(alphaConversion (App (Lambda "x" (Lambda "y" (App (Var "x") (Var "y")))) (Var "x")))
 
