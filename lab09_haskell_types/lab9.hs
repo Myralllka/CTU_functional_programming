@@ -17,14 +17,14 @@ tree_depth (Node left right) = 1 + max (tree_depth left) (tree_depth right)
 
 -- Ex 3
 
-label_hlp :: Tree a -> Int -> (Tree (a, Int), Int)
-label_hlp (Leaf x) n = (Leaf (x, n), n + 1)
-label_hlp (Node left right) n = let (left', n') = label_hlp left n
-                                    (right', n'') = label_hlp right n' 
+labelHlp :: Tree a -> Int -> (Tree (a, Int), Int)
+labelHlp (Leaf x) n = (Leaf (x, n), n + 1)
+labelHlp (Node left right) n = let (left', n') = labelHlp left n
+                                   (right', n'') = labelHlp right n' 
                                  in (Node left' right', n'')
 
-label_tree :: Tree a -> Tree (a, Int)
-label_tree t = fst (label_hlp t 0)
+labelTree :: Tree a -> Tree (a, Int)
+labelTree t = fst (labelHlp t 0)
 
 -- Task 1
 
