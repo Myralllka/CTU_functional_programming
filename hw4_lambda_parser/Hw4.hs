@@ -44,7 +44,7 @@ token p = do space
              return x
 
 var :: Parser Expr
-var = do name <- sat isAlpha
+var = do name <- sat isAlphaNum
          xs <- many alphaNum
 
          return (Var (name:xs))
@@ -67,6 +67,9 @@ app = do char '('
          return (App ex1 ex2)
 
 
+def :: Parser Glob
+def = token definition
+
 definition :: Parser Glob
 definition = do name <- sat isAlphaNum
                 names <- many alphaNum
@@ -81,25 +84,27 @@ replace source target (x:xs) | source `isPrefixOf` (x:xs) = target ++ replace so
                                     where start = length source
                                           stop = length xs
 
+checkReinit :: [Char] -> [Char] -> Bool
+checkReinit _ "" = False
+checkReinit var_name str | (var_name ++ " :=") `isInfixOf` str = True
+                         | otherwise = False
+
+replaceDefinitions :: String -> String -> String -> String
+replaceDefinitions _ _ "" = ""
+replaceDefinitions source target (x:xs) | checkReinit source (x:xs) = x:xs
+                                        | otherwise = replace source target (x:xs)
 -- 0 := (\\s.(\\z.z)) \n S := (\\w.(\\y.(\\x.(y ((w y) x)))))
 
 definitions :: String -> String
-definitions str = case parse definition str of
+definitions str = case parse def str of
                  Nothing -> str
-                 Just (Gl a b, s) -> definitions (replace a (show b) s)
+                 Just (Gl a b, s) -> definitions (replaceDefinitions a (show b) s)
 
 readPrg :: String -> Maybe Expr
 readPrg str = fst <$> parse expr (definitions str)
-                
+
 -- main :: IO ()
 -- main = do inp <- getContents
 --           case readPrg inp of
 --                 Nothing -> putStrLn "Incorrect program"
 --                 Just e -> print $ e
-                
--- variables = case fst <$> parse definition "a := 1" of
---                 Nothing -> Gl "" (Var "x")
---                 Just x -> x
-
-
--- main = parse definition
