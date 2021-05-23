@@ -66,7 +66,6 @@ app = do char '('
          char ')'
          return (App ex1 ex2)
 
-
 def :: Parser Glob
 def = token definition
 
@@ -93,15 +92,23 @@ replaceDefinitions :: String -> String -> String -> String
 replaceDefinitions _ _ "" = ""
 replaceDefinitions source target (x:xs) | checkReinit source (x:xs) = x:xs
                                         | otherwise = replace source target (x:xs)
--- 0 := (\\s.(\\z.z)) \n S := (\\w.(\\y.(\\x.(y ((w y) x)))))
 
-definitions :: String -> String
-definitions str = case parse def str of
-                 Nothing -> str
-                 Just (Gl a b, s) -> definitions (replaceDefinitions a (show b) s)
+
+definitions :: String -> Maybe String
+definitions str | ":=" `isInfixOf` str =  case parse def str of
+                                        Nothing -> Nothing
+                                        Just (Gl a b, s) -> definitions (replaceDefinitions a (show b) s)
+                | otherwise = Just str
+
 
 readPrg :: String -> Maybe Expr
-readPrg str = fst <$> parse expr (definitions str)
+readPrg str = fst <$> parse expr (new_str)
+                        where new_str = case definitions str of
+                                            Nothing -> ""
+                                            Just x -> x
+
+-- readPrg str = do new_str <- definitions str 
+                --  return fst <$> parse expr new_str
 
 -- main :: IO ()
 -- main = do inp <- getContents
