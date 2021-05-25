@@ -35,7 +35,7 @@ space :: Parser ()
 space = many (sat isSpace) >> return ()
 
 expr :: Parser Expr
-expr = token (lambda <|> app <|> var)
+expr = lambda <|> app <|> var
 
 token :: Parser a -> Parser a
 token p = do space
@@ -69,10 +69,15 @@ app = do char '('
 def :: Parser Glob
 def = token definition
 
+prg ::Parser Expr
+prg = token expr
+
 definition :: Parser Glob
 definition = do name <- sat isAlphaNum
                 names <- many alphaNum
-                token (string ":=")
+                sep
+                string ":="
+                sep
                 exp <- expr >>= \e' -> return e'
                 return (Gl (name:names) exp)
 
@@ -85,7 +90,7 @@ replace source target (x:xs) | source `isPrefixOf` (x:xs) = target ++ replace so
 
 checkReinit :: [Char] -> [Char] -> Bool
 checkReinit _ "" = False
-checkReinit var_name str | (var_name ++ " :=") `isInfixOf` str = True
+checkReinit var_name str | (var_name ++ " := ") `isInfixOf` str = True
                          | otherwise = False
 
 replaceDefinitions :: String -> String -> String -> String
@@ -102,14 +107,14 @@ definitions str | ":=" `isInfixOf` str =  case parse def str of
 
 
 readPrg :: String -> Maybe Expr
-readPrg str = fst <$> parse expr (new_str)
-                        where new_str = case definitions str of
+readPrg str = res
+                  where new_str = case definitions str of
                                             Nothing -> ""
                                             Just x -> x
-
--- readPrg str = do new_str <- definitions str 
-                --  return fst <$> parse expr new_str
-
+                        tmp = parse prg new_str
+                        res | Just "" == (snd <$> tmp) = fst <$> tmp
+                            | otherwise  = Nothing 
+                                
 -- main :: IO ()
 -- main = do inp <- getContents
 --           case readPrg inp of
